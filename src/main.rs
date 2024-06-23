@@ -4,7 +4,7 @@
 use camera::CameraBuilder;
 use ray::Ray;
 use shapes::{Hittable, Shape, Sphere};
-use vector::{random_unit_vector, random_unit_vector_in_hemisphere, Point3D, Vec3};
+use vector::{random_unit_vector, Point3D, Vec3};
 
 pub mod camera;
 pub mod color;
