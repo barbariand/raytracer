@@ -1,0 +1,68 @@
+   Compiling raytracer v0.1.0 (/Games/code/raytracer)
+   Compiling raytracer v0.1.0 (/Games/code/raytracer)
+warning: unused import: `f64::consts::PI`
+  --> src/camera.rs:14:5
+   |
+14 |     f64::consts::PI,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `f64::consts::PI`
+  --> src/camera.rs:14:5
+   |
+14 |     f64::consts::PI,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `Rng`
+  --> src/camera.rs:11:17
+   |
+11 |     thread_rng, Rng,
+   |                 ^^^
+
+warning: unused import: `Rng`
+  --> src/camera.rs:11:17
+   |
+11 |     thread_rng, Rng,
+   |                 ^^^
+
+warning: fields `t` and `front_face` are never read
+ --> src/hittable.rs:8:9
+  |
+5warning: fields `t` and `front_face` are never read
+ --> src/hittable.rs:8:9
+  |
+5 | pub struct Hit {
+  |            --- fields in this struct
+...
+8 |     pub t: f64,
+  |         ^
+9 |     front_face: bool,
+  |     ^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+ | pub struct Hit {
+  |            --- fields in this struct
+...
+8 |     pub t: f64,
+  |         ^
+9 |     front_face: bool,
+  |     ^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: `raytracer` (bin "raytracer") generated 3 warnings (run `cargo fix --bin "raytracer"` to apply 1 suggestion)
+warning: `raytracer` (bin "raytracer") generated 3 warnings (run `cargo fix --bin "raytracer"` to apply 1 suggestion)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.21s
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.21s
+     Running `target/debug/raytracer`
+     Running `target/debug/raytracer`
+viewport_width:3.5555555555555554,viewport_height:2
+viewport_width:3.5555555555555554,viewport_height:2
+pix/samp scale:0.01
+pix/samp scale:0.01
+Done
+Done

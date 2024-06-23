@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub},
 };
 
@@ -10,16 +11,26 @@ pub struct Color(Vec3);
 
 impl Display for Color {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
+        let min = 0.0;
+        let max = 0.99999;
+
+        let r = self.red().sqrt();
+        let g = self.green().sqrt();
+        let b = self.blue().sqrt();
+
+        write!(
             f,
-            " {} {} {}",
-            (255.999 * self.red()) as u8,
-            (255.999 * self.green()) as u8,
-            (255.999 * self.blue()) as u8
+            "{} {} {}",
+            (256. * r.clamp(min, max)) as u8,
+            (256. * g.clamp(min, max)) as u8,
+            (256. * b.clamp(min, max)) as u8
         )
     }
 }
 impl Color {
+    pub const fn vec3(self) -> Vec3 {
+        self.0
+    }
     pub const WHITE: Color = Color(Vec3::new(1.0, 1.0, 1.0));
     pub const RED: Color = Color(Vec3::new(1.0, 0.0, 0.0));
     pub const GREEN: Color = Color(Vec3::new(0.0, 1.0, 0.0));
@@ -210,5 +221,10 @@ impl AddAssign<&f64> for Color {
         *self.red_mut() *= *rhs;
         *self.green_mut() *= *rhs;
         *self.blue_mut() *= *rhs;
+    }
+}
+impl Sum for Color {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Color(Vec3::new(0., 0., 0.)), |a, b| a + b)
     }
 }

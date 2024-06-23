@@ -1,4 +1,10 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
+use std::{
+    f64::consts::PI,
+    iter::Sum,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub},
+};
+
+use rand::Rng;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct Vec3 {
@@ -8,6 +14,10 @@ pub struct Vec3 {
 }
 pub type Point3D = Vec3;
 impl Vec3 {
+    pub const Y: Self = Self::new(0.0, 1.0, 0.0);
+    pub const X: Self = Self::new(1.0, 0.0, 0.0);
+    pub const Z: Self = Self::new(0.0, 0.0, 1.0);
+
     pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
     }
@@ -183,4 +193,47 @@ impl AddAssign<&f64> for Vec3 {
         self.y *= rhs;
         self.z *= rhs;
     }
+}
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, rhs: Vec3) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+impl Sum for Vec3 {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Vec3::new(0., 0., 0.), |a, b| a + b)
+    }
+}
+pub fn random_unit_vector_in_hemisphere(normal: &Vec3) -> Vec3 {
+    let mut random_vector = random_unit_vector();
+    // Align the random vector to the normal vector
+    if random_vector.dot(normal) < 0.0 {
+        random_vector = -random_vector;
+    }
+
+    // Ensure the vector is on the "right" side
+    let right_vector = if normal.cross(&random_vector).dot(&Vec3::X) > 0.0 {
+        random_vector
+    } else {
+        -random_vector
+    };
+
+    right_vector
+}
+pub fn random_unit_vector() -> Vec3 {
+    let mut rng = rand::thread_rng();
+
+    // Generate random spherical coordinates
+    let phi = rng.gen_range(0.0..2.0 * PI);
+    let theta = rng.gen_range(0.0..PI / 2.0);
+
+    // Convert spherical coordinates to Cartesian coordinates
+    let x = theta.sin() * phi.cos();
+    let y = theta.sin() * phi.sin();
+    let z = theta.cos();
+
+    // Create the random vector in the unit sphere
+    Vec3::new(x, y, z)
 }

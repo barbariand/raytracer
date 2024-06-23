@@ -1,10 +1,20 @@
 use crate::{
     color::Color,
+    ray::Ray,
     shapes::Shape,
     vector::{Point3D, Vec3},
 };
 use indicatif::ProgressIterator;
-use std::{fmt::Display, iter::IntoIterator, mem::swap};
+use rand::{
+    distributions::{DistIter, Distribution, Uniform},
+    rngs::ThreadRng,
+    thread_rng, Rng,
+};
+use std::{
+    f64::consts::PI,
+    io::{self, Write},
+    iter::IntoIterator,
+};
 pub struct CameraBuilder {
     shapes: Vec<Shape>,
     image_height: usize,
@@ -13,6 +23,7 @@ pub struct CameraBuilder {
     focal_length: f64,
     viewport_height: f64,
     viewport_width: f64,
+    samples_per_pixel: usize,
 }
 impl Default for CameraBuilder {
     fn default() -> Self {
@@ -29,6 +40,7 @@ impl CameraBuilder {
             focal_length: 1.0,
             viewport_height: 2.0,
             viewport_width: const { 2.0 * (400.0 / 225.0) },
+            samples_per_pixel: 100,
         }
     }
     pub fn add_shape(mut self, s: impl Into<Shape>) -> Self {
@@ -89,7 +101,6 @@ impl CameraBuilder {
 
     pub fn build(self) -> Camera {
         Camera {
-            colors: vec![Color::WHITE; self.image_height * self.image_width],
             viewport: CameraInfo::new(
                 self.image_height,
                 self.image_width,
@@ -99,7 +110,13 @@ impl CameraBuilder {
                 self.viewport_width,
             ),
             world: self.shapes,
+            samples_per_pixel: self.samples_per_pixel,
         }
+    }
+
+    pub fn set_samples_per_pixel(&mut self, samples_per_pixel: usize) -> &mut Self {
+        self.samples_per_pixel = samples_per_pixel;
+        self
     }
 }
 #[derive(Clone)]
@@ -203,43 +220,59 @@ impl CameraInfo {
 
 #[derive(Clone)]
 pub struct Camera {
-    colors: Vec<Color>,
     viewport: CameraInfo,
     world: Vec<Shape>,
+    samples_per_pixel: usize,
 }
 impl Camera {
     pub const fn area(&self) -> usize {
         self.viewport.image_width * self.viewport.image_height
     }
-
-    pub fn fill_rest_with(&mut self, color: Color) {
-        let area = self.area();
-        if self.colors.len() < area {
-            let fill = self.colors.capacity() - area;
-            self.colors.reserve_exact(fill);
-            self.colors.fill(color)
-        }
-    }
-    pub fn from_function<F: Fn(&CameraInfo, &[Shape], usize, usize) -> Color>(&mut self, func: F) {
-        let colors = self.colors.iter_mut().enumerate().progress();
-        for (i, c) in colors {
-            let h = i / self.viewport.image_width;
-            let w = i % self.viewport.image_width;
-            swap(c, &mut func(&self.viewport, &self.world, h, w));
+    pub fn render<F: Fn(Ray, isize, &[Shape]) -> Vec3>(&mut self, func: F) {
+        let stdout = io::stdout();
+        let mut stdout_handle = stdout.lock();
+        write!(
+            stdout_handle,
+            "P3\n{} {}\n255\n",
+            self.viewport.image_width, self.viewport.image_height
+        )
+        .expect("can not write to stdout");
+        let pixel_samples_scale = 1.0 / self.samples_per_pixel as f64;
+        let mut rng = Uniform::new(0.0, 1.0).sample_iter(thread_rng());
+        eprintln!("pix/samp scale:{}", pixel_samples_scale);
+        for h in (0..self.viewport.image_height).progress() {
+            for w in 0..self.viewport.image_width {
+                let mut pixel_color = Vec3::new(0., 0., 0.);
+                for _ in 0..self.samples_per_pixel {
+                    let r: Ray = self.get_sample_ray(w, h, &mut rng);
+                    let f = func(r, 50, &self.world);
+                    pixel_color += f;
+                }
+                let pixel_color = Color::new(pixel_color * pixel_samples_scale);
+                writeln!(stdout_handle, "{}", pixel_color).expect("can not write to stdout");
+            }
         }
         eprintln!("Done");
     }
-}
-impl Display for Camera {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "P3\n{} {}\n255\n",
-            self.viewport.image_width, self.viewport.image_height
-        )?;
-        for c in &self.colors {
-            c.fmt(f)?;
-        }
-        Ok(())
+    pub fn get_sample_ray(
+        &self,
+        w: usize,
+        h: usize,
+        rng: &mut DistIter<Uniform<f64>, ThreadRng, f64>,
+    ) -> Ray {
+        let offset = get_sample_ray(rng);
+        let pixel_center = self.viewport.pixel00_loc()
+            + &((w as f64 + offset.x()) * self.viewport.pixel_delta_u())
+            + ((h as f64 + offset.y()) * self.viewport.pixel_delta_v());
+        let ray_direction = pixel_center - self.viewport.camera_center();
+
+        Ray::new(self.viewport.camera_center(), ray_direction)
     }
+}
+pub fn get_sample_ray(rng: &mut DistIter<Uniform<f64>, ThreadRng, f64>) -> Vec3 {
+    Vec3::new(
+        rng.next().unwrap_or_default() - 0.5,
+        rng.next().unwrap_or_default() - 0.5,
+        0.0,
+    )
 }

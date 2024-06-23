@@ -25,22 +25,22 @@ impl Hittable for Sphere {
         let sqrt_d = discriminant.sqrt();
         let mut root_1 = (h - sqrt_d) / a;
         let mut root_2 = (h + sqrt_d) / a;
-         // Ensure root_1 is the smaller root
-    if root_1 > root_2 {
-        std::mem::swap(&mut root_1, &mut root_2);
-    }
-
-    // Check the smallest root first
-    if root_1 < 0.0 {
-        root_1 = root_2; // Use the second root if the first is negative
-        if root_1 < 0.0 {
-            return None; // Both roots are negative, no intersection
+        // Ensure root_1 is the smaller root
+        if root_1 > root_2 {
+            std::mem::swap(&mut root_1, &mut root_2);
         }
-    }
 
-    let t = root_1;
-    let p = r.at(t);
-    let normal = (p - self.center) / self.radius;
-    Some(Hit::new(r, p, normal, t))
+        // Check the smallest root first
+        if root_1 < 0.0000001 {
+            root_1 = root_2; // Use the second root if the first is negative
+            if root_1 < 0.0000001 {
+                return None; // Both roots are negative, no intersection
+            }
+        }
+
+        let t = root_1;
+        let p = r.at(t);
+        let normal = (p - self.center) / self.radius;
+        Some(Hit::new(r, p, normal, t))
     }
 }
