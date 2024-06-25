@@ -1,17 +1,23 @@
-use crate::{ray::Ray, vector::Point3D};
+use crate::{materials::Materials, ray::Ray, vector::Point3D};
 
 use super::*;
 #[derive(Clone)]
 pub struct Sphere {
     center: Point3D,
     radius: f64,
+    mat: Materials,
 }
 
 impl Sphere {
-    pub const fn new(center: Point3D, radius: f64) -> Self {
-        Self { center, radius }
+    pub const fn new(center: Point3D, radius: f64, mat: Materials) -> Self {
+        Self {
+            center,
+            radius,
+            mat,
+        }
     }
 }
+
 impl Hittable for Sphere {
     fn hit(&self, r: &Ray) -> Option<Hit> {
         let oc = &self.center - r.origin();
@@ -41,6 +47,6 @@ impl Hittable for Sphere {
         let t = root_1;
         let p = r.at(t);
         let normal = (p - self.center) / self.radius;
-        Some(Hit::new(r, p, normal, t))
+        Some(Hit::new(r, p, normal, self.mat.clone()))
     }
 }

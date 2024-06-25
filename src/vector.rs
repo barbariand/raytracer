@@ -4,7 +4,7 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub},
 };
 
-use rand::Rng;
+use rand::{rngs::ThreadRng, thread_rng, Rng};
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct Vec3 {
@@ -17,7 +17,7 @@ impl Vec3 {
     pub const Y: Self = Self::new(0.0, 1.0, 0.0);
     pub const X: Self = Self::new(1.0, 0.0, 0.0);
     pub const Z: Self = Self::new(0.0, 0.0, 1.0);
-
+    pub const ZERO: Self = Self::new(0.0, 0.0, 0.0);
     pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
     }
@@ -64,6 +64,23 @@ impl Vec3 {
 
     pub fn x_mut(&mut self) -> &mut f64 {
         &mut self.x
+    }
+
+    pub fn near_zero(&self) -> bool {
+        const S: f64 = 0.0000001;
+        const N: f64 = -S;
+        matches!((self.x, self.y, self.z), (N..S, N..S, N..S))
+    }
+
+    pub fn reflect(&self, normal: &Vec3) -> Vec3 {
+        self - &(self.dot(normal) * normal * 2.0)
+    }
+
+    pub fn refract(&self, normal: &Vec3, etai_over_etat: f64) -> Vec3 {
+        let cos_theta = self.neg().dot(normal).min(1.0);
+        let r_pout_prep = etai_over_etat * (self + &(normal * cos_theta));
+        let r_out_parallel = -(1.0 - r_pout_prep.length_squared()).abs().sqrt() * normal;
+        r_pout_prep + r_out_parallel
     }
 }
 
@@ -214,17 +231,14 @@ pub fn random_unit_vector_in_hemisphere(normal: &Vec3) -> Vec3 {
     }
 
     // Ensure the vector is on the "right" side
-    let right_vector = if normal.cross(&random_vector).dot(&Vec3::X) > 0.0 {
+    if normal.cross(&random_vector).dot(&Vec3::X) > 0.0 {
         random_vector
     } else {
         -random_vector
-    };
-
-    right_vector
+    }
 }
 pub fn random_unit_vector() -> Vec3 {
-    let mut rng = rand::thread_rng();
-
+    let mut rng = thread_rng();
     // Generate random spherical coordinates
     let phi = rng.gen_range(0.0..2.0 * PI);
     let theta = rng.gen_range(0.0..PI / 2.0);
@@ -236,4 +250,7 @@ pub fn random_unit_vector() -> Vec3 {
 
     // Create the random vector in the unit sphere
     Vec3::new(x, y, z)
+}
+pub fn random_f64_in_range() -> f64 {
+    thread_rng().gen_range(0.0..1.0)
 }

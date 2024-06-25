@@ -1,38 +1,41 @@
-#![warn(clippy::missing_const_for_fn)]
-#![feature(iter_array_chunks)]
-
+#![warn(clippy::missing_const_for_fn, clippy::perf)]
 use camera::CameraBuilder;
-use ray::Ray;
-use shapes::{Hittable, Shape, Sphere};
-use vector::{random_unit_vector, Point3D, Vec3};
+use color::Color;
+use materials::{Dielectric, Lambertian, Materials, Metal};
+
+use shapes::Sphere;
+use vector::{Point3D, Vec3};
 
 pub mod camera;
 pub mod color;
 mod hittable;
+mod materials;
 mod ray;
 mod shapes;
 mod vector;
 
-fn ray_color(r: Ray, depth: isize, hittable: &[Shape]) -> Vec3 {
-    // If we've exceeded the ray bounce limit, no more light is gathered.
-    if depth <= 0 {
-        return Vec3::new(0., 0., 0.);
-    }
-    if let Some(hit) = hittable.hit(&r) {
-        let direction = hit.normal + random_unit_vector();
-        return 0.5 * ray_color(Ray::new(hit.p, direction), depth - 1, hittable);
-    }
-    let unit_direction = r.direction().unit_vector();
-    let a = 0.5 * (unit_direction.y() + 1.0);
-
-    (1.0 - a) * Vec3::new(1.0, 1.0, 1.0) + a * Vec3::new(0.5, 0.7, 1.0)
-}
 fn main() {
+    let material_ground: Materials = Lambertian::new(Color::new(Vec3::new(0.8, 0.8, 0.0))).into();
+    let material_center: Materials = Lambertian::new(Color::new(Vec3::new(0.1, 0.2, 0.5))).into();
+    let material_left: Materials = Dielectric::new(1.5).into();
+    let material_bubble: Materials = Dielectric::new(1.0 / 1.50).into();
+    let material_right: Materials = Metal::new(Color::new(Vec3::new(0.8, 0.6, 0.2)), 1.0).into();
+
     let s = [
-        Sphere::new(Point3D::new(0.0, 0.0, -1.0), 0.5),
-        Sphere::new(Point3D::new(0.0, -100.5, -1.0), 100.0),
+        Sphere::new(
+            Point3D::new(0.0, -100.5, -1.0),
+            100.0,
+            material_ground.clone(),
+        ),
+        Sphere::new(Point3D::new(0.0, 0.0, -1.2), 0.5, material_center.clone()),
+        Sphere::new(Point3D::new(-1.0, 0.0, -1.0), 0.5, material_left.clone()),
+        Sphere::new(Point3D::new(-1.0, 0.0, -1.0), 0.4, material_bubble),
+        Sphere::new(Point3D::new(1.0, 0.0, -1.0), 0.5, material_right.clone()),
     ];
 
-    let mut camera = CameraBuilder::new().add_shapes(s).build();
-    camera.render(ray_color);
+    let mut camera = CameraBuilder::new()
+        .set_image_height_with_aspect_ratio(720, 16.0 / 9.0)
+        .add_shapes(s)
+        .build();
+    camera.render();
 }

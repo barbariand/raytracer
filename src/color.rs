@@ -28,8 +28,8 @@ impl Display for Color {
     }
 }
 impl Color {
-    pub const fn vec3(self) -> Vec3 {
-        self.0
+    pub const fn vec3(&self) -> &Vec3 {
+        &self.0
     }
     pub const WHITE: Color = Color(Vec3::new(1.0, 1.0, 1.0));
     pub const RED: Color = Color(Vec3::new(1.0, 0.0, 0.0));

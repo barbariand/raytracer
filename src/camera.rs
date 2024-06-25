@@ -1,17 +1,19 @@
 use crate::{
     color::Color,
+    hittable::Hittable,
+    materials::Material,
     ray::Ray,
     shapes::Shape,
     vector::{Point3D, Vec3},
 };
-use indicatif::ProgressIterator;
+use indicatif::ParallelProgressIterator;
 use rand::{
     distributions::{DistIter, Distribution, Uniform},
     rngs::ThreadRng,
-    thread_rng, Rng,
+    thread_rng,
 };
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{
-    f64::consts::PI,
     io::{self, Write},
     iter::IntoIterator,
 };
@@ -24,6 +26,8 @@ pub struct CameraBuilder {
     viewport_height: f64,
     viewport_width: f64,
     samples_per_pixel: usize,
+    vfov: f64,
+    look_at: Vec3,
 }
 impl Default for CameraBuilder {
     fn default() -> Self {
@@ -38,9 +42,11 @@ impl CameraBuilder {
             image_width: 400,
             pos: Point3D::new(0., 0., 0.),
             focal_length: 1.0,
+            look_at: Vec3::new(0.0, 0.0, 1.0),
             viewport_height: 2.0,
-            viewport_width: const { 2.0 * (400.0 / 225.0) },
+            viewport_width: const { 2.0 * (400.0 / 225.0) * 90.0 },
             samples_per_pixel: 100,
+            vfov: 90.0,
         }
     }
     pub fn add_shape(mut self, s: impl Into<Shape>) -> Self {
@@ -90,11 +96,6 @@ impl CameraBuilder {
         self.pos = pos;
         self
     }
-
-    pub const fn set_focal_length(mut self, focal_length: f64) -> Self {
-        self.focal_length = focal_length;
-        self
-    }
     pub fn aspect_ratio(&self) -> f64 {
         self.image_height as f64 / self.image_width as f64
     }
@@ -105,7 +106,7 @@ impl CameraBuilder {
                 self.image_height,
                 self.image_width,
                 self.pos,
-                self.focal_length,
+                self.look_at,
                 self.viewport_height,
                 self.viewport_width,
             ),
@@ -116,6 +117,14 @@ impl CameraBuilder {
 
     pub fn set_samples_per_pixel(&mut self, samples_per_pixel: usize) -> &mut Self {
         self.samples_per_pixel = samples_per_pixel;
+        self
+    }
+
+    pub fn set_vfov(&mut self, vfov_deg: f64) -> &mut Self {
+        let new_vfov = (vfov_deg.to_degrees() * 0.5).tan();
+        self.viewport_height = self.viewport_height / self.vfov * new_vfov;
+        self.viewport_width = self.viewport_width / self.vfov * new_vfov;
+        self.vfov = new_vfov;
         self
     }
 }
@@ -133,31 +142,43 @@ pub struct CameraInfo {
     pixel_delta_v: Vec3,
     pixel00_loc: Vec3,
     viewport_upper_left: Vec3,
+    look_at: Vec3,
+    vup: Vec3,
+    u_base: Vec3,
+    v_base: Vec3,
+    w_base: Vec3,
 }
 impl CameraInfo {
     fn new(
         image_height: usize,
         image_width: usize,
-        camera_center: Point3D,
-        focal_length: f64,
+        look_from: Vec3,
+        look_at: Vec3,
         viewport_height: f64,
         viewport_width: f64,
     ) -> Self {
-        eprintln!("viewport_width:{viewport_width},viewport_height:{viewport_height}");
-        let viewport_u = Vec3::new(viewport_width, 0.0, 0.0);
-        let viewport_v = Vec3::new(0.0, -viewport_height, 0.0);
+        let focal_length = (look_from - look_at).length();
+        let vup = Vec3::new(0.0, 1.0, 0.0);
+        let w_base = (look_from - look_at).unit_vector();
+        let u_base = vup.cross(&w_base).unit_vector();
+        let v_base = w_base.cross(&u_base);
+        let viewport_u = viewport_width * u_base;
+        let viewport_v = viewport_height * -v_base;
         let pixel_delta_u = viewport_u / image_width as f64;
         let pixel_delta_v = viewport_v / image_height as f64;
-        let viewport_upper_left = camera_center
-            - Vec3::new(0.0, 0.0, focal_length)
-            - &viewport_u * 0.5
-            - &viewport_v * 0.5;
+        let viewport_upper_left =
+            look_from - focal_length * w_base - &viewport_u * 0.5 - &viewport_v * 0.5;
         let pixel00_loc = viewport_upper_left + &(pixel_delta_u + pixel_delta_v) * 0.5;
         Self {
+            u_base,
+            v_base,
+            vup,
+            w_base,
             focal_length,
             viewport_height,
             viewport_width,
-            camera_center,
+            camera_center: look_from,
+            look_at,
             image_height,
             image_width,
             viewport_u,
@@ -228,7 +249,26 @@ impl Camera {
     pub const fn area(&self) -> usize {
         self.viewport.image_width * self.viewport.image_height
     }
-    pub fn render<F: Fn(Ray, isize, &[Shape]) -> Vec3>(&mut self, func: F) {
+    pub fn render(&mut self) {
+        let pixel_samples_scale = 1.0 / self.samples_per_pixel as f64;
+        eprintln!("pix/samp scale:{}", pixel_samples_scale);
+        let s = (0..self.viewport.image_height)
+            .into_par_iter()
+            .progress()
+            .map(|h| {
+                let mut rng = Uniform::new(0.0, 1.0).sample_iter(thread_rng());
+                (0..self.viewport.image_width).fold(String::new(), |s, w| {
+                    let mut pixel_color = Vec3::new(0., 0., 0.);
+                    for _ in 0..self.samples_per_pixel {
+                        let r: Ray = self.get_sample_ray(w, h, &mut rng);
+                        let f = ray_color(r, 50, &self.world);
+                        pixel_color += f;
+                    }
+                    let pixel_color = Color::new(pixel_color * pixel_samples_scale);
+                    s + &format!("{}\n", pixel_color)
+                })
+            })
+            .reduce(String::new, |acc, v| acc + &v);
         let stdout = io::stdout();
         let mut stdout_handle = stdout.lock();
         write!(
@@ -237,21 +277,8 @@ impl Camera {
             self.viewport.image_width, self.viewport.image_height
         )
         .expect("can not write to stdout");
-        let pixel_samples_scale = 1.0 / self.samples_per_pixel as f64;
-        let mut rng = Uniform::new(0.0, 1.0).sample_iter(thread_rng());
-        eprintln!("pix/samp scale:{}", pixel_samples_scale);
-        for h in (0..self.viewport.image_height).progress() {
-            for w in 0..self.viewport.image_width {
-                let mut pixel_color = Vec3::new(0., 0., 0.);
-                for _ in 0..self.samples_per_pixel {
-                    let r: Ray = self.get_sample_ray(w, h, &mut rng);
-                    let f = func(r, 50, &self.world);
-                    pixel_color += f;
-                }
-                let pixel_color = Color::new(pixel_color * pixel_samples_scale);
-                writeln!(stdout_handle, "{}", pixel_color).expect("can not write to stdout");
-            }
-        }
+        eprintln!("writing to stdout");
+        println!("{}", s);
         eprintln!("Done");
     }
     pub fn get_sample_ray(
@@ -275,4 +302,20 @@ pub fn get_sample_ray(rng: &mut DistIter<Uniform<f64>, ThreadRng, f64>) -> Vec3 
         rng.next().unwrap_or_default() - 0.5,
         0.0,
     )
+}
+fn ray_color(r: Ray, depth: isize, hittable: &[Shape]) -> Vec3 {
+    // If we've exceeded the ray bounce limit, no more light is gathered.
+    if depth <= 0 {
+        return Vec3::new(0., 0., 0.);
+    }
+    if let Some(hit) = hittable.hit(&r) {
+        if let Some((scatterd, color)) = hit.mat.scatter(&r, &hit) {
+            return color.vec3() * &ray_color(scatterd, depth - 1, hittable);
+        }
+        return Vec3::ZERO;
+    }
+    let unit_direction = r.direction().unit_vector();
+    let a = 0.5 * (unit_direction.y() + 1.0);
+
+    (1.0 - a) * Vec3::new(1.0, 1.0, 1.0) + a * Vec3::new(0.5, 0.7, 1.0)
 }
