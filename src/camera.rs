@@ -22,7 +22,6 @@ pub struct CameraBuilder {
     image_height: usize,
     image_width: usize,
     pos: Point3D,
-    focal_length: f64,
     viewport_height: f64,
     viewport_width: f64,
     samples_per_pixel: usize,
@@ -41,7 +40,6 @@ impl CameraBuilder {
             image_height: 225,
             image_width: 400,
             pos: Point3D::new(0., 0., 0.),
-            focal_length: 1.0,
             look_at: Vec3::new(0.0, 0.0, 1.0),
             viewport_height: 2.0,
             viewport_width: const { 2.0 * (400.0 / 225.0) * 90.0 },
@@ -128,7 +126,7 @@ impl CameraBuilder {
         self
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct CameraInfo {
     image_height: usize,
     image_width: usize,
@@ -158,17 +156,22 @@ impl CameraInfo {
         viewport_width: f64,
     ) -> Self {
         let focal_length = (look_from - look_at).length();
+
         let vup = Vec3::new(0.0, 1.0, 0.0);
         let w_base = (look_from - look_at).unit_vector();
         let u_base = vup.cross(&w_base).unit_vector();
         let v_base = w_base.cross(&u_base);
+
         let viewport_u = viewport_width * u_base;
         let viewport_v = viewport_height * -v_base;
+
         let pixel_delta_u = viewport_u / image_width as f64;
         let pixel_delta_v = viewport_v / image_height as f64;
+
         let viewport_upper_left =
             look_from - focal_length * w_base - &viewport_u * 0.5 - &viewport_v * 0.5;
         let pixel00_loc = viewport_upper_left + &(pixel_delta_u + pixel_delta_v) * 0.5;
+
         Self {
             u_base,
             v_base,
@@ -237,6 +240,36 @@ impl CameraInfo {
     pub const fn viewport_upper_left(&self) -> &Vec3 {
         &self.viewport_upper_left
     }
+
+    pub fn set_camera_center(&mut self, camera_center: Point3D) {
+        self.camera_center = camera_center;
+        self.recalculate()
+    }
+
+    pub fn set_look_at(&mut self, look_at: Vec3) {
+        self.look_at = look_at;
+        self.recalculate();
+    }
+    pub fn recalculate(&mut self) {
+        self.focal_length = (self.camera_center - self.look_at).length();
+
+        self.w_base = (self.camera_center - self.look_at).unit_vector();
+        self.u_base = self.vup.cross(&self.w_base).unit_vector();
+        self.v_base = self.w_base.cross(&self.u_base);
+
+        self.viewport_u = self.viewport_width * self.u_base;
+        self.viewport_v = self.viewport_height * -self.v_base;
+
+        self.pixel_delta_u = self.viewport_u / self.image_width as f64;
+        self.pixel_delta_v = self.viewport_v / self.image_height as f64;
+
+        self.viewport_upper_left = self.camera_center
+            - self.focal_length * self.w_base
+            - &self.viewport_u * 0.5
+            - &self.viewport_v * 0.5;
+        self.pixel00_loc =
+            self.viewport_upper_left + &(self.pixel_delta_u + self.pixel_delta_v) * 0.5;
+    }
 }
 
 #[derive(Clone)]
@@ -294,6 +327,14 @@ impl Camera {
         let ray_direction = pixel_center - self.viewport.camera_center();
 
         Ray::new(self.viewport.camera_center(), ray_direction)
+    }
+
+    pub fn set_camera_center(&mut self, camera_center: Point3D) {
+        self.viewport.set_camera_center(camera_center)
+    }
+
+    pub fn set_look_at(&mut self, look_at: Vec3) {
+        self.viewport.set_look_at(look_at)
     }
 }
 pub fn get_sample_ray(rng: &mut DistIter<Uniform<f64>, ThreadRng, f64>) -> Vec3 {

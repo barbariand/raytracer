@@ -37,5 +37,7 @@ fn main() {
         .set_image_height_with_aspect_ratio(720, 16.0 / 9.0)
         .add_shapes(s)
         .build();
+    camera.set_camera_center(Point3D::new(-2.0, -2.0, 1.0));
+    camera.set_look_at(Vec3::new(0.0, 1.0, 0.0));
     camera.render();
 }
