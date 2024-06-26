@@ -358,7 +358,7 @@ impl CameraInfo {
         };
         let ray_direction = pixel_center - ray_origin;
 
-        Ray::new(ray_origin, ray_direction)
+        Ray::new(ray_origin, ray_direction, rng.next().unwrap_or_default())
     }
     fn defocus_disk_sample(&self) -> Vec3 {
         let p = random_unit_in_disk();

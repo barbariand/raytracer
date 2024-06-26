@@ -12,13 +12,13 @@ impl Lambertian {
     }
 }
 impl Material for Lambertian {
-    fn scatter(&self, _: &crate::ray::Ray, hit: &crate::hittable::Hit) -> Option<(Ray, Color)> {
+    fn scatter(&self, r: &crate::ray::Ray, hit: &crate::hittable::Hit) -> Option<(Ray, Color)> {
         let mut scatter_direction = hit.normal + random_unit_in_disk();
         if scatter_direction.near_zero() {
             scatter_direction = hit.normal;
         }
 
-        let scatterd = Ray::new(hit.p, scatter_direction);
+        let scatterd = Ray::new(hit.p, scatter_direction, r.tm());
         Some((scatterd, self.color))
     }
 }

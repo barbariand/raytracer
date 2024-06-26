@@ -44,18 +44,23 @@ fn main() {
             );
 
             if (center - Point3D::new(4.0, 0.2, 0.0)).length() > 0.9 {
-                let material: Materials = if choose_mat < 0.8 {
+                let sphere: Sphere = if choose_mat < 0.8 {
                     let color = random_color(&mut between) * random_color(&mut between);
-                    Lambertian::new(color).into()
+                    let mat = Lambertian::new(color).into();
+                    let center2 =
+                        center + Vec3::new(0.0, between.next().unwrap_or_default() * 0.5, 0.0);
+                    Sphere::new_moving(center, center2, 0.2, mat)
                 } else if choose_mat < 0.95 {
                     let color = &random_color(&mut between) * 0.5 + 0.5_f64 * &Color::WHITE;
                     let fuzz = between.next().unwrap_or_default() * 0.5;
-                    Metal::new(color, fuzz).into()
+                    let mat = Metal::new(color, fuzz).into();
+                    Sphere::new(center, 0.2, mat)
                 } else {
-                    Dielectric::new(1.5).into()
+                    let mat = Dielectric::new(1.5).into();
+                    Sphere::new(center, 0.2, mat)
                 };
 
-                shapes.push(Sphere::new(center, 0.2, material));
+                shapes.push(sphere);
             }
         }
     }
@@ -71,8 +76,8 @@ fn main() {
 
     eprintln!("Setup done");
     let camera = Camera::default()
-        .set_image_height_with_aspect_ratio(720, 16.0 / 9.0)
-        .set_samples_per_pixel(500)
+        .set_image_width_with_aspect_ratio(400, 16.0 / 9.0)
+        .set_samples_per_pixel(100)
         .set_vfov(20.0)
         .set_camera_center(Point3D::new(13.0, 2.0, 3.0))
         .set_look_at(Vec3::new(0.0, 0.0, 0.0))

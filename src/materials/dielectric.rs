@@ -39,7 +39,7 @@ impl Material for Dielectric {
             false => unit_direction.refract(&hit.normal, ri),
         };
 
-        let scatterd = Ray::new(hit.p, direction);
+        let scatterd = Ray::new(hit.p, direction, r.tm());
         Some((scatterd, color))
     }
 }
