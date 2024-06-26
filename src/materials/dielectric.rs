@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::Material;
-
+#[derive(Debug, Clone)]
 pub struct Dielectric {
     refraction_index: f64,
 }

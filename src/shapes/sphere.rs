@@ -1,7 +1,7 @@
 use crate::{materials::Materials, ray::Ray, vector::Point3D};
 
 use super::*;
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Sphere {
     center: Point3D,
     radius: f64,
@@ -37,9 +37,9 @@ impl Hittable for Sphere {
         }
 
         // Check the smallest root first
-        if root_1 < 0.0000001 {
+        if root_1 < 0.0000001 || root_1.is_nan() {
             root_1 = root_2; // Use the second root if the first is negative
-            if root_1 < 0.0000001 {
+            if root_1 < 0.0000001 || root_1.is_nan() {
                 return None; // Both roots are negative, no intersection
             }
         }
@@ -47,6 +47,6 @@ impl Hittable for Sphere {
         let t = root_1;
         let p = r.at(t);
         let normal = (p - self.center) / self.radius;
-        Some(Hit::new(r, p, normal, self.mat.clone()))
+        Some(Hit::new(r, p, normal, self.mat.clone(), t))
     }
 }

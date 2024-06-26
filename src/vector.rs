@@ -4,13 +4,13 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub},
 };
 
-use rand::{rngs::ThreadRng, thread_rng, Rng};
+use rand::{thread_rng, Rng};
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct Vec3 {
-    x: f64,
-    y: f64,
-    z: f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 pub type Point3D = Vec3;
 impl Vec3 {
@@ -47,7 +47,7 @@ impl Vec3 {
         Self::new(
             self.y * rhs.z - self.z * rhs.y,
             self.z * rhs.x - self.x * rhs.z,
-            self.x * self.y - rhs.y * self.x,
+            self.x * rhs.y - self.y * rhs.x,
         )
     }
     pub fn unit_vector(&self) -> Self {
@@ -69,9 +69,11 @@ impl Vec3 {
     pub fn near_zero(&self) -> bool {
         const S: f64 = 0.0000001;
         const N: f64 = -S;
-        matches!((self.x, self.y, self.z), (N..S, N..S, N..S))
+        (N..S).contains(&self.x) && (N..S).contains(&self.y) && (N..S).contains(&self.z)
     }
-
+    pub fn is_nan(&self) -> bool {
+        self.x.is_nan() || self.y.is_nan() || self.z.is_nan()
+    }
     pub fn reflect(&self, normal: &Vec3) -> Vec3 {
         self - &(self.dot(normal) * normal * 2.0)
     }
@@ -223,21 +225,8 @@ impl Sum for Vec3 {
         iter.fold(Vec3::new(0., 0., 0.), |a, b| a + b)
     }
 }
-pub fn random_unit_vector_in_hemisphere(normal: &Vec3) -> Vec3 {
-    let mut random_vector = random_unit_vector();
-    // Align the random vector to the normal vector
-    if random_vector.dot(normal) < 0.0 {
-        random_vector = -random_vector;
-    }
 
-    // Ensure the vector is on the "right" side
-    if normal.cross(&random_vector).dot(&Vec3::X) > 0.0 {
-        random_vector
-    } else {
-        -random_vector
-    }
-}
-pub fn random_unit_vector() -> Vec3 {
+pub fn random_unit_in_disk() -> Vec3 {
     let mut rng = thread_rng();
     // Generate random spherical coordinates
     let phi = rng.gen_range(0.0..2.0 * PI);

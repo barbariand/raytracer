@@ -6,7 +6,7 @@ use std::{
 
 use crate::vector::Vec3;
 
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct Color(Vec3);
 
 impl Display for Color {
@@ -169,6 +169,16 @@ impl Mul for &Color {
             self.green() * rhs.green(),
             self.blue() * rhs.blue(),
         )
+    }
+}
+impl Mul<Color> for Color {
+    type Output = Color;
+
+    fn mul(mut self, rhs: Color) -> Self::Output {
+        self.0.x *= rhs.0.x;
+        self.0.y *= rhs.0.y;
+        self.0.z *= rhs.0.z;
+        self
     }
 }
 impl Mul<f64> for &Color {

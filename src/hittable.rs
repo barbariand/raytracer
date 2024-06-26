@@ -8,9 +8,10 @@ pub struct Hit {
     pub normal: Vec3,
     pub mat: Materials,
     pub front_face: bool,
+    pub t: f64,
 }
 impl Hit {
-    pub fn new(r: &Ray, p: Point3D, normal: Vec3, mat: Materials) -> Self {
+    pub fn new(r: &Ray, p: Point3D, normal: Vec3, mat: Materials, t: f64) -> Self {
         //assert!(normal==normal.unit_vector());
         let front_face = r.direction().dot(&normal) < 0.0;
         let normal = match front_face {
@@ -18,6 +19,7 @@ impl Hit {
             false => -normal,
         };
         Self {
+            t,
             mat,
             p,
             normal,

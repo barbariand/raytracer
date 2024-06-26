@@ -1,7 +1,7 @@
-use crate::{color::Color, ray::Ray, vector::random_unit_vector};
+use crate::{color::Color, ray::Ray, vector::random_unit_in_disk};
 
 use super::Material;
-
+#[derive(Debug, Clone)]
 pub struct Lambertian {
     color: Color,
 }
@@ -13,7 +13,7 @@ impl Lambertian {
 }
 impl Material for Lambertian {
     fn scatter(&self, _: &crate::ray::Ray, hit: &crate::hittable::Hit) -> Option<(Ray, Color)> {
-        let mut scatter_direction = hit.normal + random_unit_vector();
+        let mut scatter_direction = hit.normal + random_unit_in_disk();
         if scatter_direction.near_zero() {
             scatter_direction = hit.normal;
         }
